@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Question = require('../models/Question');
 const UserProgress = require('../models/UserProgress');
+const CompletionHistory = require('../models/CompletionHistory');
 const auth = require('../middleware/auth');
 
 // Get all questions with user progress
@@ -48,16 +49,65 @@ router.patch('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Question not found' });
     }
     
-    // Update or create user progress
-    const updateData = { 
-      completed,
-      completedAt: completed ? new Date() : null
-    };
-    const userProgress = await UserProgress.findOneAndUpdate(
-      { user: req.userId, question: questionId },
-      updateData,
-      { new: true, upsert: true }
-    );
+    const now = new Date();
+    const todayDateKey = now.toISOString().split('T')[0];
+    
+    // Get current progress
+    let userProgress = await UserProgress.findOne({
+      user: req.userId,
+      question: questionId
+    });
+    
+    if (completed) {
+      // User is marking the question as completed
+      
+      // Record in completion history (one entry per day per question)
+      // This will create a new entry or update if already exists for today
+      await CompletionHistory.findOneAndUpdate(
+        {
+          user: req.userId,
+          question: questionId,
+          dateKey: todayDateKey
+        },
+        {
+          user: req.userId,
+          question: questionId,
+          completedAt: now,
+          dateKey: todayDateKey
+        },
+        { upsert: true, new: true }
+      );
+      
+      // Update user progress
+      const updateData = {
+        completed: true,
+        completedAt: now,
+        lastStateChangeAt: now,
+        $inc: { completionCount: 1 }
+      };
+      
+      userProgress = await UserProgress.findOneAndUpdate(
+        { user: req.userId, question: questionId },
+        updateData,
+        { new: true, upsert: true }
+      );
+    } else {
+      // User is unmarking the question
+      // We keep the completion history intact (never delete)
+      // Only update the current status
+      
+      const updateData = {
+        completed: false,
+        lastStateChangeAt: now
+        // Don't change completedAt or completionCount when unmarking
+      };
+      
+      userProgress = await UserProgress.findOneAndUpdate(
+        { user: req.userId, question: questionId },
+        updateData,
+        { new: true, upsert: true }
+      );
+    }
     
     res.json({ ...question.toObject(), completed: userProgress.completed });
   } catch (error) {
@@ -101,20 +151,16 @@ router.get('/stats/summary', auth, async (req, res) => {
 // Get daily activity for contribution heatmap
 router.get('/stats/activity', auth, async (req, res) => {
   try {
-    const userProgress = await UserProgress.find({ 
-      user: req.userId,
-      completed: true 
+    // Get all completion history entries for this user
+    const completionHistory = await CompletionHistory.find({ 
+      user: req.userId
     }).sort({ completedAt: 1 });
     
-    // Group by date
+    // Group by date and count unique questions per day
     const activityMap = {};
-    const today = new Date().toISOString().split('T')[0];
     
-    userProgress.forEach(progress => {
-      // If completedAt is missing but question is completed, use today's date
-      const date = progress.completedAt ? 
-        new Date(progress.completedAt).toISOString().split('T')[0] : 
-        today;
+    completionHistory.forEach(entry => {
+      const date = entry.dateKey;
       activityMap[date] = (activityMap[date] || 0) + 1;
     });
     

@@ -17,6 +17,15 @@ const userProgressSchema = new mongoose.Schema({
   },
   completedAt: {
     type: Date
+  },
+  // Track the last state change for current completed status
+  lastStateChangeAt: {
+    type: Date
+  },
+  // Count total times this question was marked as completed
+  completionCount: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
