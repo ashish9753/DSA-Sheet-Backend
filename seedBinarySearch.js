@@ -94,6 +94,143 @@ const binarySearchQuestions = [
     gfgLink: "https://www.geeksforgeeks.org/problems/peak-element/1",
     difficulty: "Medium",
     topic: "Binary Search"
+  },
+
+  // BS on Answers
+  {
+    name: "Find square root of a number in log n",
+    leetcodeLink: "https://leetcode.com/problems/sqrtx/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/square-root/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Find the Nth root of a number using binary search",
+    leetcodeLink: "https://leetcode.com/problems/powx-n/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/find-nth-root-of-m5843/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Koko Eating Bananas",
+    leetcodeLink: "https://leetcode.com/problems/koko-eating-bananas/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/koko-eating-bananas/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Minimum days to make M bouquets",
+    leetcodeLink: "https://leetcode.com/problems/minimum-number-of-days-to-make-m-bouquets/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/minimum-days-to-make-m-bouquets/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Find the smallest Divisor",
+    leetcodeLink: "https://leetcode.com/problems/find-the-smallest-divisor-given-a-threshold/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/smallest-divisor/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Capacity to Ship Packages within D Days",
+    leetcodeLink: "https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/capacity-to-ship-packages-within-d-days/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Kth Missing Positive Number",
+    leetcodeLink: "https://leetcode.com/problems/kth-missing-positive-number/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/kth-missing-positive-number/1",
+    difficulty: "Easy",
+    topic: "Binary Search"
+  },
+  {
+    name: "Aggressive Cows",
+    leetcodeLink: "https://leetcode.com/problems/magnetic-force-between-two-balls/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/aggressive-cows/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Book Allocation Problem",
+    leetcodeLink: "https://leetcode.com/problems/split-array-largest-sum/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/allocate-minimum-number-of-pages0937/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Split array - Largest Sum",
+    leetcodeLink: "https://leetcode.com/problems/split-array-largest-sum/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/split-array-largest-sum/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Painter's Partition",
+    leetcodeLink: "https://leetcode.com/problems/split-array-largest-sum/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/the-painters-partition-problem1535/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Minimize Max Distance to Gas Station",
+    leetcodeLink: "https://leetcode.com/problems/minimize-max-distance-to-gas-station/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/minimize-max-distance-to-gas-station/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Median of 2 sorted arrays",
+    leetcodeLink: "https://leetcode.com/problems/median-of-two-sorted-arrays/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/median-of-two-sorted-arrays1618/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Kth element of 2 sorted arrays",
+    leetcodeLink: "https://leetcode.com/problems/kth-smallest-element-in-a-sorted-matrix/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/k-th-element-of-two-sorted-array1317/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+
+  // BS on 2D Arrays
+  {
+    name: "Find the row with maximum number of 1's",
+    leetcodeLink: "https://leetcode.com/problems/row-with-maximum-ones/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/row-with-max-1s0023/1",
+    difficulty: "Easy",
+    topic: "Binary Search"
+  },
+  {
+    name: "Search in a 2D matrix",
+    leetcodeLink: "https://leetcode.com/problems/search-a-2d-matrix/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/search-in-a-matrix-1587115621/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Search in a row and column wise sorted matrix",
+    leetcodeLink: "https://leetcode.com/problems/search-a-2d-matrix-ii/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/search-in-a-row-wise-and-column-wise-sorted-matrix/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
+  },
+  {
+    name: "Find Peak Element (2D Matrix)",
+    leetcodeLink: "https://leetcode.com/problems/find-a-peak-element-ii/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/find-peak-element-in-2d-matrix/1",
+    difficulty: "Medium",
+    topic: "Binary Search"
+  },
+  {
+    name: "Matrix Median",
+    leetcodeLink: "https://leetcode.com/problems/median-of-two-sorted-arrays/",
+    gfgLink: "https://www.geeksforgeeks.org/problems/median-in-a-row-wise-sorted-matrix1527/1",
+    difficulty: "Hard",
+    topic: "Binary Search"
   }
 ];
 
