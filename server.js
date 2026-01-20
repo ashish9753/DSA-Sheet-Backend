@@ -14,6 +14,11 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB connected successfully'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
+// Health check endpoint for keepalive
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date() });
+});
+
 // Routes
 const questionRoutes = require('./routes/arrayQuestions.router');
 const authRoutes = require('./routes/auth');
