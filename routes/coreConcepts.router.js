@@ -17,7 +17,7 @@ router.get('/', auth, async (req, res) => {
       filter.subTopic = subTopic;
     }
     
-    const concepts = await CoreConcept.find(filter).sort({ topic: 1, subTopic: 1, name: 1 });
+    const concepts = await CoreConcept.find(filter).sort({ topic: 1, subTopic: 1, sequenceNo: 1, name: 1 });
     
     // Get user's progress for these concepts
     const conceptIds = concepts.map(c => c._id);
