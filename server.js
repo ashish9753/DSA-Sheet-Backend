@@ -23,10 +23,12 @@ app.get('/health', (req, res) => {
 const questionRoutes = require('./routes/arrayQuestions.router');
 const dpQuestionRoutes = require('./routes/dpQuestions.router');
 const authRoutes = require('./routes/auth');
+const coreConceptsRoutes = require('./routes/coreConcepts.router');
 
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/core-concepts', coreConceptsRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
