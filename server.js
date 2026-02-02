@@ -21,9 +21,11 @@ app.get('/health', (req, res) => {
 
 // Routes
 const questionRoutes = require('./routes/arrayQuestions.router');
+const dpQuestionRoutes = require('./routes/dpQuestions.router');
 const authRoutes = require('./routes/auth');
 
 app.use('/api/questions', questionRoutes);
+app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/auth', authRoutes);
 
 const PORT = process.env.PORT || 5000;
