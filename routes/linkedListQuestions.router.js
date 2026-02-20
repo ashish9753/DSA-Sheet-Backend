@@ -110,6 +110,58 @@ router.get('/stats', auth, async (req, res) => {
       }
     });
 
+    const userProgress = await UserProgress.find({
+      user: req.userId,
+      completed: true,
+      question: { $in: await Question.find({ topic: 'LinkedList' }).distinct('_id') }
+    });
+    const completedQuestionIds = userProgress.map(p => p.question);
+
+    const easyCompleted = await Question.countDocuments({ 
+      _id: { $in: completedQuestionIds },
+      difficulty: 'Easy',
+      topic: 'LinkedList'
+    });
+    const mediumCompleted = await Question.countDocuments({ 
+      _id: { $in: completedQuestionIds },
+      difficulty: 'Medium',
+      topic: 'LinkedList'
+    });
+    const hardCompleted = await Question.countDocuments({ 
+      _id: { $in: completedQuestionIds },
+      difficulty: 'Hard',
+      topic: 'LinkedList'
+    });
+
+    res.json({
+      total: totalQuestions,
+      completed: completedQuestions,
+      easyCompleted,
+      mediumCompleted,
+      hardCompleted,
+      remaining: totalQuestions - completedQuestions,
+      completionPercentage: totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get LinkedList questions statistics (alternative endpoint)
+router.get('/stats/summary', auth, async (req, res) => {
+// Get LinkedList questions statistics (alternative endpoint)
+router.get('/stats/summary', auth, async (req, res) => {
+  try {
+    const totalQuestions = await Question.countDocuments({ topic: 'LinkedList' });
+    
+    const completedQuestions = await UserProgress.countDocuments({
+      user: req.userId,
+      completed: true,
+      question: { 
+        $in: await Question.find({ topic: 'LinkedList' }).distinct('_id') 
+      }
+    });
+
     const difficultyStats = await Question.aggregate([
       { $match: { topic: 'LinkedList' } },
       { $group: { _id: '$difficulty', count: { $sum: 1 } } }
