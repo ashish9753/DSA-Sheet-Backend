@@ -149,8 +149,6 @@ router.get('/stats', auth, async (req, res) => {
 
 // Get LinkedList questions statistics (alternative endpoint)
 router.get('/stats/summary', auth, async (req, res) => {
-// Get LinkedList questions statistics (alternative endpoint)
-router.get('/stats/summary', auth, async (req, res) => {
   try {
     const totalQuestions = await Question.countDocuments({ topic: 'LinkedList' });
     
