@@ -22,13 +22,13 @@ app.get('/health', (req, res) => {
 // Routes
 const questionRoutes = require('./routes/arrayQuestions.router');
 const dpQuestionRoutes = require('./routes/dpQuestions.router');
-const stringQuestionRoutes = require('./routes/stringQuestions.router');
+const linkedListQuestionRoutes = require('./routes/linkedListQuestions.router');
 const authRoutes = require('./routes/auth');
 const coreConceptsRoutes = require('./routes/coreConcepts.router');
 
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
-app.use('/api/string-questions', stringQuestionRoutes);
+app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
 
