@@ -25,10 +25,12 @@ const dpQuestionRoutes = require('./routes/dpQuestions.router');
 const linkedListQuestionRoutes = require('./routes/linkedListQuestions.router');
 const authRoutes = require('./routes/auth');
 const coreConceptsRoutes = require('./routes/coreConcepts.router');
+const stringQuestionRoutes = require('./routes/stringQuestions.router');
 
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
+app.use('/api/string-questions', stringQuestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
 
