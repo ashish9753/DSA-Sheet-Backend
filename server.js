@@ -20,7 +20,6 @@ mongoose.connect(process.env.MONGODB_URI)
     const logQuestionCount = async () => {
       try {
         const count = await Question.countDocuments();
-        console.log(`[${new Date().toISOString()}] Total questions in DB: ${count}`);
       } catch (err) {
         console.error('Error counting questions:', err);
       }
