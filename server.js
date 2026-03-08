@@ -43,12 +43,23 @@ const authRoutes = require('./routes/auth');
 const coreConceptsRoutes = require('./routes/coreConcepts.router');
 const stringQuestionRoutes = require('./routes/stringQuestions.router');
 const recursionQuestionRoutes = require('./routes/recursionQuestions.router');
-
+const bitManipulationQuestionRoutes = require('./routes/bitManipulationQuestions.router');
+const stackAndQueuesQuestionRoutes = require('./routes/stackAndQueuesQuestions.router');
+const slidingWindowQuestionRoutes = require('./routes/slidingWindowQuestions.router');
+const heapsQuestionRoutes = require('./routes/heapsQuestions.router');
+const greedyQuestionRoutes = require('./routes/greedyQuestions.router');
+const graphsQuestionRoutes = require('./routes/graphsQuestions.router');
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
 app.use('/api/string-questions', stringQuestionRoutes);
 app.use('/api/recursion-questions', recursionQuestionRoutes);
+app.use('/api/bit-manipulation-questions', bitManipulationQuestionRoutes);
+app.use('/api/stack-queues-questions', stackAndQueuesQuestionRoutes);
+app.use('/api/sliding-window-questions', slidingWindowQuestionRoutes);
+app.use('/api/heaps-questions', heapsQuestionRoutes);
+app.use('/api/greedy-questions', greedyQuestionRoutes);
+app.use('/api/graphs-questions', graphsQuestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
 
