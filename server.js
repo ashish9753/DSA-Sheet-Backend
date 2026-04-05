@@ -50,6 +50,7 @@ const heapsQuestionRoutes = require('./routes/heapsQuestions.router');
 const greedyQuestionRoutes = require('./routes/greedyQuestions.router');
 const graphsQuestionRoutes = require('./routes/graphsQuestions.router');
 const leaderboardRoutes = require('./routes/leaderboard.router');
+const reviewsRoutes = require('./routes/reviews.router');
 
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
@@ -65,6 +66,7 @@ app.use('/api/graphs-questions', graphsQuestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
 app.use('/api', leaderboardRoutes);
+app.use('/api', reviewsRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
