@@ -23,18 +23,21 @@ router.post('/signup', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const userRole = email === 'admin@ashishdev.com' ? 'admin' : 'user';
+
     // Create user
     const user = new User({
       username,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      role: userRole
     });
 
     await user.save();
 
     // Generate token
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '1d' }
     );
@@ -44,7 +47,8 @@ router.post('/signup', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -63,6 +67,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked' });
+    }
+
     // Check password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
@@ -71,7 +79,7 @@ router.post('/login', async (req, res) => {
 
     // Generate token
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id, role: user.role },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '1d' }
     );
@@ -81,7 +89,8 @@ router.post('/login', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {

@@ -10,6 +10,7 @@ const auth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
     req.userId = decoded.userId;
+    req.userRole = decoded.role;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Please authenticate' });
