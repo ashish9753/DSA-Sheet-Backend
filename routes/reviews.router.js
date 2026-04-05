@@ -112,6 +112,8 @@ router.get('/website/stats', async (req, res) => {
     if (stats.length === 0) {
       return res.status(200).json({
         success: true,
+        averageRating: 0,
+        totalReviews: 0,
         stats: {
           averageRating: 0,
           totalReviews: 0,
@@ -132,6 +134,8 @@ router.get('/website/stats', async (req, res) => {
 
     res.status(200).json({
       success: true,
+      averageRating: Number(averageRating.toFixed(1)),
+      totalReviews,
       stats: {
         averageRating: Number(averageRating.toFixed(1)),
         totalReviews,
