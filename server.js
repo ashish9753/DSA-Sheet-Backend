@@ -10,7 +10,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-
+rite 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -49,6 +49,8 @@ const slidingWindowQuestionRoutes = require('./routes/slidingWindowQuestions.rou
 const heapsQuestionRoutes = require('./routes/heapsQuestions.router');
 const greedyQuestionRoutes = require('./routes/greedyQuestions.router');
 const graphsQuestionRoutes = require('./routes/graphsQuestions.router');
+const leaderboardRoutes = require('./routes/leaderboard.router');
+
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
@@ -62,6 +64,7 @@ app.use('/api/greedy-questions', greedyQuestionRoutes);
 app.use('/api/graphs-questions', graphsQuestionRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
+app.use('/api', leaderboardRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
