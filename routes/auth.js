@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const auth = require('../middleware/auth');
 
 // Signup
 router.post('/signup', async (req, res) => {
@@ -48,7 +49,8 @@ router.post('/signup', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        isBlocked: user.isBlocked
       }
     });
   } catch (error) {
@@ -90,11 +92,88 @@ router.post('/login', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        isBlocked: user.isBlocked
       }
     });
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
+  }
+});
+
+// Update profile (username/email)
+router.patch('/me', auth, async (req, res) => {
+  try {
+    const { username, email } = req.body;
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (username && username !== user.username) {
+      const trimmedUsername = username.trim();
+      const existingUsername = await User.findOne({ username: trimmedUsername, _id: { $ne: user._id } });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      user.username = trimmedUsername;
+    }
+
+    if (email && email !== user.email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingEmail = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+      if (existingEmail) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+      user.email = normalizedEmail;
+    }
+
+    await user.save();
+
+    res.json({
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        isBlocked: user.isBlocked
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating profile', error: error.message });
+  }
+});
+
+// Update password (old + new)
+router.patch('/me/password', auth, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: 'Old and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Old password is incorrect' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating password', error: error.message });
   }
 });
 

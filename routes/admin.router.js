@@ -73,4 +73,53 @@ router.patch('/users/:id/block', async (req, res) => {
   }
 });
 
+// Edit user (username, email, role)
+router.patch('/users/:id', async (req, res) => {
+  try {
+    const { username, email, role } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'Cannot edit an admin' });
+    }
+
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({ username, _id: { $ne: user._id } });
+      if (existingUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      user.username = username.trim();
+    }
+
+    if (email && email !== user.email) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const existingEmail = await User.findOne({ email: normalizedEmail, _id: { $ne: user._id } });
+      if (existingEmail) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+      user.email = normalizedEmail;
+    }
+
+    if (role) {
+      if (!['user', 'admin'].includes(role)) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+      user.role = role;
+    }
+
+    await user.save();
+    const progressCount = await UserProgress.countDocuments({ user: user._id, completed: true });
+
+    res.json({
+      ...user.toObject(),
+      completedQuestions: progressCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user', error: error.message });
+  }
+});
+
 module.exports = router;
