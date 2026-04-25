@@ -5,6 +5,8 @@ const UserProgress = require('../models/UserProgress');
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 
+const MAIN_ADMIN_EMAIL = 'admin@ashishdev.com';
+
 router.use(auth);
 router.use(isAdmin);
 
@@ -36,6 +38,7 @@ router.get('/users', async (req, res) => {
         completedQuestions: progressCount,
         joiningDate: user.createdAt,
         lastSubmissionDate: lastSubmission?.completedAt || null,
+        lastLoginDate: user.lastLogin || null,
         isOnline
       };
     }));
@@ -53,16 +56,24 @@ router.delete('/users/:id', async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
-    // Admin cannot delete another admin (or themselves) lightly, but let's allow it per requirements
-    // though it's safer to prevent self-deletion or admin deletion
-    if (user.role === 'admin' && req.userId === user._id.toString()) {
-        return res.status(403).json({ message: 'Admin cannot delete themselves' });
+
+    const actorIsMainAdmin = req.userEmail?.toLowerCase() === MAIN_ADMIN_EMAIL;
+    const targetIsSelf = req.userId === user._id.toString();
+    const targetIsAdmin = user.role === 'admin';
+
+    // Nobody can delete themselves
+    if (targetIsSelf) {
+      return res.status(403).json({ message: 'You cannot delete your own account' });
+    }
+
+    // Only main admin can delete other admins
+    if (targetIsAdmin && !actorIsMainAdmin) {
+      return res.status(403).json({ message: 'Only the main admin can delete admin accounts' });
     }
 
     await User.findByIdAndDelete(req.params.id);
     await UserProgress.deleteMany({ user: req.params.id });
-    
+
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting user', error: error.message });
@@ -77,8 +88,18 @@ router.patch('/users/:id/block', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.role === 'admin') {
-        return res.status(403).json({ message: 'Cannot block an admin' });
+    const actorIsMainAdmin = req.userEmail?.toLowerCase() === MAIN_ADMIN_EMAIL;
+    const targetIsSelf = req.userId === user._id.toString();
+    const targetIsAdmin = user.role === 'admin';
+
+    // Nobody can block themselves
+    if (targetIsSelf) {
+      return res.status(403).json({ message: 'You cannot block your own account' });
+    }
+
+    // Only main admin can block other admins
+    if (targetIsAdmin && !actorIsMainAdmin) {
+      return res.status(403).json({ message: 'Only the main admin can block admin accounts' });
     }
 
     user.isBlocked = !user.isBlocked;
@@ -99,8 +120,18 @@ router.patch('/users/:id', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.role === 'admin') {
-      return res.status(403).json({ message: 'Cannot edit an admin' });
+    const actorIsMainAdmin = req.userEmail?.toLowerCase() === MAIN_ADMIN_EMAIL;
+    const targetIsSelf = req.userId === user._id.toString();
+    const targetIsAdmin = user.role === 'admin';
+
+    // Nobody can edit themselves via admin panel
+    if (targetIsSelf) {
+      return res.status(403).json({ message: 'You cannot edit your own account here' });
+    }
+
+    // Only main admin can edit other admins
+    if (targetIsAdmin && !actorIsMainAdmin) {
+      return res.status(403).json({ message: 'Only the main admin can edit admin accounts' });
     }
 
     if (username && username !== user.username) {

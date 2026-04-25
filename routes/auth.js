@@ -86,6 +86,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1d' }
     );
 
+    // Record last login time
+    user.lastLogin = new Date();
+    await user.save();
+
     res.json({
       token,
       user: {

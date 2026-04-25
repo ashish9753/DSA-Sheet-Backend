@@ -10,7 +10,7 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
-    const user = await User.findById(decoded.userId).select('role isBlocked');
+    const user = await User.findById(decoded.userId).select('role isBlocked email');
     // Update lastActive timestamp
     if (user) {
       user.lastActive = new Date();
@@ -27,6 +27,7 @@ const auth = async (req, res, next) => {
 
     req.userId = decoded.userId;
     req.userRole = user.role || decoded.role;
+    req.userEmail = user.email;
     next();
   } catch (error) {
     res.status(401).json({ message: 'Please authenticate' });
