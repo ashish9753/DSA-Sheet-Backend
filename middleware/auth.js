@@ -11,6 +11,11 @@ const auth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
     const user = await User.findById(decoded.userId).select('role isBlocked');
+    // Update lastActive timestamp
+    if (user) {
+      user.lastActive = new Date();
+      await user.save();
+    }
 
     if (!user) {
       return res.status(401).json({ message: 'Please authenticate' });

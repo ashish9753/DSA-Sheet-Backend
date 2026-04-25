@@ -12,14 +12,31 @@ router.use(isAdmin);
 router.get('/users', async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
-    
-    // Fetch progress for each user
+
+    // Fetch progress and last submission for each user
+
+    const ONLINE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+    const now = Date.now();
     const usersWithProgress = await Promise.all(users.map(async (user) => {
       const progressCount = await UserProgress.countDocuments({ user: user._id, completed: true });
-      
+
+      // Find the latest completedAt for this user
+      const lastSubmission = await UserProgress.findOne({ user: user._id, completed: true })
+        .sort({ completedAt: -1 })
+        .select('completedAt');
+
+      // Determine online status
+      let isOnline = false;
+      if (user.lastActive) {
+        isOnline = (now - new Date(user.lastActive).getTime()) < ONLINE_WINDOW_MS;
+      }
+
       return {
         ...user.toObject(),
-        completedQuestions: progressCount
+        completedQuestions: progressCount,
+        joiningDate: user.createdAt,
+        lastSubmissionDate: lastSubmission?.completedAt || null,
+        isOnline
       };
     }));
 
