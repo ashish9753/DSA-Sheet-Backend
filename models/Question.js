@@ -22,6 +22,10 @@ const questionSchema = new mongoose.Schema({
     type: String,
     default: 'Array'
   },
+  sequenceNo: {
+    type: Number,
+    default: 0
+  },
   completed: {
     type: Boolean,
     default: false
