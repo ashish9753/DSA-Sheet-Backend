@@ -35,6 +35,13 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date() });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Server is running securely. Created by Ashish Sharma.'
+  });
+});
+
 // Routes
 const questionRoutes = require('./routes/arrayQuestions.router');
 const dpQuestionRoutes = require('./routes/dpQuestions.router');
