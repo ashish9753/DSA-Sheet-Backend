@@ -53,7 +53,6 @@ const leaderboardRoutes = require('./routes/leaderboard.router');
 const reviewsRoutes = require('./routes/reviews.router');
 const adminRoutes = require('./routes/admin.router');
 const adminQuestionsRoutes = require('./routes/adminQuestions.router');
-
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
