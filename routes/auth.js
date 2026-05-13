@@ -221,13 +221,13 @@ router.patch('/me', auth, async (req, res) => {
   }
 });
 
-// Update password (old + new)
+// Update password (for authenticated users, oldPassword is not required)
 router.patch('/me/password', auth, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: 'Old and new password are required' });
+    if (!newPassword) {
+      return res.status(400).json({ message: 'New password is required' });
     }
 
     if (newPassword.length < 6) {
@@ -239,10 +239,15 @@ router.patch('/me/password', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Old password is incorrect' });
+    // If oldPassword is provided, verify it
+    if (oldPassword) {
+      const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Old password is incorrect' });
+      }
     }
+    // If user is authenticated (which they are since they passed the auth middleware),
+    // they can change their password without providing the old one
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
