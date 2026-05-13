@@ -46,25 +46,28 @@ router.get('/leaderboard', async (req, res) => {
 // Get leaderboard with detailed stats per user
 router.get('/leaderboard/detailed', async (req, res) => {
   try {
-    // Get all users
-    const users = await User.find().select('_id username email createdAt');
-
-    // Get completion counts for each user
-    const leaderboardDetails = [];
-
-    for (const user of users) {
-      const completionCount = await CompletionHistory.countDocuments({ user: user._id });
-      leaderboardDetails.push({
-        userId: user._id,
-        username: user.username,
-        email: user.email,
-        completedQuestionsCount: completionCount,
-        joinedAt: user.createdAt
-      });
-    }
-
-    // Sort by completion count descending
-    leaderboardDetails.sort((a, b) => b.completedQuestionsCount - a.completedQuestionsCount);
+    const leaderboardDetails = await User.aggregate([
+      {
+        $lookup: {
+          from: 'completionhistories',
+          localField: '_id',
+          foreignField: 'user',
+          as: 'completions'
+        }
+      },
+      {
+        $project: {
+          userId: '$_id',
+          username: 1,
+          email: 1,
+          completedQuestionsCount: { $size: '$completions' },
+          joinedAt: '$createdAt'
+        }
+      },
+      {
+        $sort: { completedQuestionsCount: -1 }
+      }
+    ]);
 
     res.status(200).json({
       success: true,

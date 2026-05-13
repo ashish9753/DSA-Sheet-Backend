@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const Question = require('./models/Question');
-
 const app = express();
 
 // Middleware
@@ -15,18 +13,6 @@ app.use(express.json());
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('MongoDB connected successfully');
-
-    // Log total question count every 1 minute
-    const logQuestionCount = async () => {
-      try {
-        const count = await Question.countDocuments();
-      } catch (err) {
-        console.error('Error counting questions:', err);
-      }
-      setTimeout(logQuestionCount, 40 * 1000);
-    };
-
-    setTimeout(logQuestionCount, 40 * 1000);
   })
   .catch((err) => console.error('MongoDB connection error:', err));
 

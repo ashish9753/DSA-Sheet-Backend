@@ -113,20 +113,28 @@ router.delete('/questions/:id', async (req, res) => {
 // Get all users with basic progress info
 router.get('/users', async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const [users, progressSummaries] = await Promise.all([
+      User.find().select('-password').sort({ createdAt: -1 }).lean(),
+      UserProgress.aggregate([
+        { $match: { completed: true } },
+        {
+          $group: {
+            _id: '$user',
+            completedQuestions: { $sum: 1 },
+            lastSubmissionDate: { $max: '$completedAt' }
+          }
+        }
+      ])
+    ]);
 
-    // Fetch progress and last submission for each user
+    const progressByUserId = new Map(
+      progressSummaries.map(summary => [summary._id.toString(), summary])
+    );
 
     const ONLINE_WINDOW_MS = 2 * 60 * 1000; // 2 minutes
     const now = Date.now();
-    const usersWithProgress = await Promise.all(users.map(async (user) => {
-      const progressCount = await UserProgress.countDocuments({ user: user._id, completed: true });
-
-      // Find the latest completedAt for this user
-      const lastSubmission = await UserProgress.findOne({ user: user._id, completed: true })
-        .sort({ completedAt: -1 })
-        .select('completedAt');
-
+    const usersWithProgress = users.map((user) => {
+      const progressSummary = progressByUserId.get(user._id.toString());
       // Determine online status
       let isOnline = false;
       if (user.lastActive) {
@@ -134,14 +142,14 @@ router.get('/users', async (req, res) => {
       }
 
       return {
-        ...user.toObject(),
-        completedQuestions: progressCount,
+        ...user,
+        completedQuestions: progressSummary?.completedQuestions || 0,
         joiningDate: user.createdAt,
-        lastSubmissionDate: lastSubmission?.completedAt || null,
+        lastSubmissionDate: progressSummary?.lastSubmissionDate || null,
         lastLoginDate: user.lastLogin || null,
         isOnline
       };
-    }));
+    });
 
     res.json(usersWithProgress);
   } catch (error) {

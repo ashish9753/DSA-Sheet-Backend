@@ -2,8 +2,51 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+
+const CLIENT_FALLBACK = '971496737518-r6ghl3vudfup2jlalm5d8pdq4ej904om.apps.googleusercontent.com';
+
+const getGoogleClientId = () => process.env.GOOGLE_CLIENT_ID || CLIENT_FALLBACK;
+const googleClient = new OAuth2Client(getGoogleClientId());
+
+const buildAuthResponse = (user) => {
+  const token = jwt.sign(
+    { userId: user._id, role: user.role },
+    process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    { expiresIn: '1d' }
+  );
+
+  return {
+    token,
+    user: {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isBlocked: user.isBlocked,
+      lastLogin: user.lastLogin
+    }
+  };
+};
+
+const makeBaseUsername = (email, name) => {
+  const source = (email?.split('@')[0] || name || 'user').toLowerCase();
+  const cleaned = source.replace(/[^a-z0-9]/g, '').slice(0, 14);
+  return cleaned.length >= 3 ? cleaned : `user${cleaned}`;
+};
+
+const makeRandomUsername = async (email, name) => {
+  const base = makeBaseUsername(email, name);
+  for (let i = 0; i < 10; i++) {
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const username = `${base}${suffix}`;
+    const existing = await User.findOne({ username });
+    if (!existing) return username;
+  }
+  return `${base}${Date.now().toString().slice(-6)}`;
+};
 
 // Signup
 router.post('/signup', async (req, res) => {
@@ -36,23 +79,10 @@ router.post('/signup', async (req, res) => {
 
     await user.save();
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-      { expiresIn: '1d' }
-    );
+    user.lastLogin = new Date();
+    await user.save();
 
-    res.status(201).json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        isBlocked: user.isBlocked
-      }
-    });
+    res.status(201).json(buildAuthResponse(user));
   } catch (error) {
     res.status(500).json({ message: 'Error creating user', error: error.message });
   }
@@ -79,29 +109,71 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key-change-in-production',
-      { expiresIn: '1d' }
-    );
-
     // Record last login time
     user.lastLogin = new Date();
     await user.save();
 
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        isBlocked: user.isBlocked
-      }
-    });
+    res.json(buildAuthResponse(user));
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
+  }
+});
+
+// Google login/signup
+router.post('/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ message: 'Google credential is required' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: getGoogleClientId()
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload?.sub) {
+      return res.status(400).json({ message: 'Google account did not return a valid email' });
+    }
+
+    const email = payload.email.toLowerCase();
+    let user = await User.findOne({
+      $or: [
+        { googleId: payload.sub },
+        { email }
+      ]
+    });
+
+    if (user?.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked' });
+    }
+
+    if (!user) {
+      const username = await makeRandomUsername(email, payload.name);
+      const password = await bcrypt.hash(`${payload.sub}-${Date.now()}-${Math.random()}`, 10);
+      const userRole = email === 'admin@ashishdev.com' ? 'admin' : 'user';
+
+      user = new User({
+        username,
+        email,
+        password,
+        googleId: payload.sub,
+        authProvider: 'google',
+        role: userRole
+      });
+    } else {
+      user.googleId = user.googleId || payload.sub;
+      user.authProvider = user.authProvider || 'google';
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    res.json(buildAuthResponse(user));
+  } catch (error) {
+    res.status(401).json({ message: 'Google authentication failed', error: error.message });
   }
 });
 

@@ -100,45 +100,36 @@ router.patch('/:id', auth, async (req, res) => {
 // Get LinkedList questions statistics
 router.get('/stats', auth, async (req, res) => {
   try {
-    const totalQuestions = await Question.countDocuments({ topic: 'LinkedList' });
-    
-    const completedQuestions = await UserProgress.countDocuments({
-      user: req.userId,
-      completed: true,
-      question: { 
-        $in: await Question.find({ topic: 'LinkedList' }).distinct('_id') 
-      }
-    });
-
+    const questionIds = await Question.find({ topic: 'LinkedList' }).distinct('_id');
+    const totalQuestions = questionIds.length;
     const userProgress = await UserProgress.find({
       user: req.userId,
       completed: true,
-      question: { $in: await Question.find({ topic: 'LinkedList' }).distinct('_id') }
+      question: { $in: questionIds }
     });
     const completedQuestionIds = userProgress.map(p => p.question);
+    const completedQuestions = completedQuestionIds.length;
 
-    const easyCompleted = await Question.countDocuments({ 
+    const completedQuestionsByDifficulty = await Question.find({
       _id: { $in: completedQuestionIds },
-      difficulty: 'Easy',
       topic: 'LinkedList'
-    });
-    const mediumCompleted = await Question.countDocuments({ 
-      _id: { $in: completedQuestionIds },
-      difficulty: 'Medium',
-      topic: 'LinkedList'
-    });
-    const hardCompleted = await Question.countDocuments({ 
-      _id: { $in: completedQuestionIds },
-      difficulty: 'Hard',
-      topic: 'LinkedList'
+    }).select('difficulty');
+
+    const completedCounts = completedQuestionsByDifficulty.reduce((counts, question) => {
+      counts[question.difficulty] = (counts[question.difficulty] || 0) + 1;
+      return counts;
+    }, {
+      Easy: 0,
+      Medium: 0,
+      Hard: 0
     });
 
     res.json({
       total: totalQuestions,
       completed: completedQuestions,
-      easyCompleted,
-      mediumCompleted,
-      hardCompleted,
+      easyCompleted: completedCounts.Easy,
+      mediumCompleted: completedCounts.Medium,
+      hardCompleted: completedCounts.Hard,
       remaining: totalQuestions - completedQuestions,
       completionPercentage: totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0
     });
@@ -150,14 +141,12 @@ router.get('/stats', auth, async (req, res) => {
 // Get LinkedList questions statistics (alternative endpoint)
 router.get('/stats/summary', auth, async (req, res) => {
   try {
-    const totalQuestions = await Question.countDocuments({ topic: 'LinkedList' });
-    
+    const questionIds = await Question.find({ topic: 'LinkedList' }).distinct('_id');
+    const totalQuestions = questionIds.length;
     const completedQuestions = await UserProgress.countDocuments({
       user: req.userId,
       completed: true,
-      question: { 
-        $in: await Question.find({ topic: 'LinkedList' }).distinct('_id') 
-      }
+      question: { $in: questionIds }
     });
 
     const difficultyStats = await Question.aggregate([
