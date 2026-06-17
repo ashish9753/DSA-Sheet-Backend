@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Question = require('../models/Question');
 const UserProgress = require('../models/UserProgress');
@@ -219,10 +220,10 @@ router.patch('/users/:id/block', async (req, res) => {
   }
 });
 
-// Edit user (username, email, role)
+// Edit user (username, email, role, password)
 router.patch('/users/:id', async (req, res) => {
   try {
-    const { username, email, role } = req.body;
+    const { username, email, role, password } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -266,11 +267,22 @@ router.patch('/users/:id', async (req, res) => {
       user.role = role;
     }
 
+    // Admin can reset a user's password (leave blank to keep it unchanged)
+    if (password !== undefined && password !== '') {
+      if (typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters' });
+      }
+      user.password = await bcrypt.hash(password, 10);
+    }
+
     await user.save();
     const progressCount = await UserProgress.countDocuments({ user: user._id, completed: true });
 
+    const userObject = user.toObject();
+    delete userObject.password;
+
     res.json({
-      ...user.toObject(),
+      ...userObject,
       completedQuestions: progressCount
     });
   } catch (error) {
