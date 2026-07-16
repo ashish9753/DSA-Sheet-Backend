@@ -13,6 +13,20 @@ const dayKey = (date = new Date()) =>
 
 const daysAgoKey = (days) => dayKey(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
 
+// Every "YYYY-MM-DD" from `from` to `to` inclusive. The day strings are opaque
+// calendar labels, so we step through them in UTC to avoid any DST surprises —
+// this reproduces the same sequence dayKey would, without a timezone shift.
+const enumerateDays = (from, to) => {
+  const days = [];
+  let cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor <= end) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return days;
+};
+
 // Anonymises a visitor for a single day. The day is mixed into the HMAC key, so
 // the same person hashes to something different tomorrow: visits can never be
 // linked across days, and the hash cannot be turned back into an IP address.
@@ -25,4 +39,4 @@ const visitorHash = (ip, userAgent, day) => {
     .slice(0, 32);
 };
 
-module.exports = { TIME_ZONE, RETENTION_DAYS, dayKey, daysAgoKey, visitorHash };
+module.exports = { TIME_ZONE, RETENTION_DAYS, dayKey, daysAgoKey, enumerateDays, visitorHash };

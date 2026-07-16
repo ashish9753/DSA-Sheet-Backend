@@ -8,7 +8,7 @@ const CompletionHistory = require('../models/CompletionHistory');
 const Visit = require('../models/Visit');
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
-const { TIME_ZONE, RETENTION_DAYS, dayKey, daysAgoKey } = require('../utils/analytics');
+const { TIME_ZONE, RETENTION_DAYS, dayKey, daysAgoKey, enumerateDays } = require('../utils/analytics');
 
 const MAIN_ADMIN_EMAIL = 'admin@ashishdev.com';
 const TREND_DAYS = 7;
@@ -33,25 +33,68 @@ const validateQuestionPayload = (payload) => {
   return null;
 };
 
-// Site traffic for a single day, defaulting to today in TIME_ZONE. Admin-only:
-// this router applies auth + isAdmin to every route above.
+// Preset windows the UI can ask for by name. Resolved server-side so "today"
+// always means today in TIME_ZONE, regardless of the admin's own clock.
+const PERIOD_DAYS = { today: 1, '7d': 7, '30d': 30, '90d': 90 };
+
+// Site traffic for a day or a date range. Admin-only: this router applies
+// auth + isAdmin to every route above.
+//
+// Window is resolved by priority: ?period=today|7d|30d|90d, then explicit
+// ?from=&to=, then a single ?date= (kept for backward compatibility), then
+// today. A single-day window returns hourly buckets; a multi-day window
+// returns daily buckets. Everything is clamped to the retention window, since
+// older visits have already expired.
 router.get('/analytics', async (req, res) => {
   try {
-    const requestedDate = typeof req.query.date === 'string' ? req.query.date : '';
-    const day = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : dayKey();
+    const isDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const today = dayKey();
+    const earliest = daysAgoKey(RETENTION_DAYS - 1);
 
-    const [totals, hourly, locations, pages, recent, trend, totalPageViews] = await Promise.all([
+    let from;
+    let to;
+    if (typeof req.query.period === 'string' && PERIOD_DAYS[req.query.period]) {
+      const span = PERIOD_DAYS[req.query.period];
+      to = today;
+      from = span === 1 ? today : daysAgoKey(span - 1);
+    } else if (isDate(req.query.from) || isDate(req.query.to)) {
+      from = isDate(req.query.from) ? req.query.from : earliest;
+      to = isDate(req.query.to) ? req.query.to : today;
+    } else if (isDate(req.query.date)) {
+      from = to = req.query.date;
+    } else {
+      from = to = today;
+    }
+
+    // Normalise: from <= to, never before what we still keep, never in the future.
+    if (from > to) [from, to] = [to, from];
+    if (from < earliest) from = earliest;
+    if (to > today) to = today;
+
+    const isSingleDay = from === to;
+    const match = { day: { $gte: from, $lte: to } };
+
+    const [totals, buckets, locations, pages, recent, last7, totalPageViews] = await Promise.all([
+      // Note on uniqueVisitors over a range: the visitor hash is salted per day
+      // (by design, so visits can't be linked across days), so a person on two
+      // days counts as two. Over a range this is the sum of each day's uniques,
+      // which is the honest number the privacy model allows.
       Visit.aggregate([
-        { $match: { day } },
+        { $match: match },
         { $group: { _id: null, pageViews: { $sum: 1 }, visitors: { $addToSet: '$visitorHash' } } },
         { $project: { _id: 0, pageViews: 1, uniqueVisitors: { $size: '$visitors' } } }
       ]),
+      isSingleDay
+        ? Visit.aggregate([
+            { $match: match },
+            { $group: { _id: { $hour: { date: '$createdAt', timezone: TIME_ZONE } }, pageViews: { $sum: 1 } } }
+          ])
+        : Visit.aggregate([
+            { $match: match },
+            { $group: { _id: '$day', pageViews: { $sum: 1 } } }
+          ]),
       Visit.aggregate([
-        { $match: { day } },
-        { $group: { _id: { $hour: { date: '$createdAt', timezone: TIME_ZONE } }, pageViews: { $sum: 1 } } }
-      ]),
-      Visit.aggregate([
-        { $match: { day } },
+        { $match: match },
         {
           $group: {
             _id: { country: '$country', timezone: '$timezone' },
@@ -72,45 +115,58 @@ router.get('/analytics', async (req, res) => {
         { $limit: 20 }
       ]),
       Visit.aggregate([
-        { $match: { day } },
+        { $match: match },
         { $group: { _id: '$path', pageViews: { $sum: 1 } } },
         { $project: { _id: 0, path: '$_id', pageViews: 1 } },
         { $sort: { pageViews: -1 } },
         { $limit: 10 }
       ]),
-      Visit.find({ day })
+      Visit.find(match)
         .sort({ createdAt: -1 })
         .limit(RECENT_VISIT_LIMIT)
         .select('createdAt path country timezone referrer -_id')
         .lean(),
+      // Fixed reference tile, independent of the selected window.
       Visit.aggregate([
         { $match: { day: { $gte: daysAgoKey(TREND_DAYS - 1) } } },
-        { $group: { _id: '$day', pageViews: { $sum: 1 }, visitors: { $addToSet: '$visitorHash' } } },
-        { $project: { _id: 0, day: '$_id', pageViews: 1, uniqueVisitors: { $size: '$visitors' } } },
-        { $sort: { day: 1 } }
+        { $group: { _id: null, pageViews: { $sum: 1 } } }
       ]),
       Visit.countDocuments()
     ]);
 
-    // Fill the quiet hours back in so the chart always spans a full day.
-    const pageViewsByHour = new Map(hourly.map(bucket => [bucket._id, bucket.pageViews]));
-    const byHour = Array.from({ length: 24 }, (_, hour) => ({
-      hour,
-      pageViews: pageViewsByHour.get(hour) || 0
-    }));
+    // Build a gap-free series so the chart spans the whole window even where
+    // there was no traffic.
+    let series;
+    if (isSingleDay) {
+      const byHour = new Map(buckets.map(b => [b._id, b.pageViews]));
+      series = Array.from({ length: 24 }, (_, hour) => ({
+        key: String(hour),
+        label: `${String(hour).padStart(2, '0')}:00`,
+        pageViews: byHour.get(hour) || 0
+      }));
+    } else {
+      const byDay = new Map(buckets.map(b => [b._id, b.pageViews]));
+      series = enumerateDays(from, to).map(day => ({
+        key: day,
+        label: day,
+        pageViews: byDay.get(day) || 0
+      }));
+    }
 
     res.json({
-      day,
+      from,
+      to,
       timeZone: TIME_ZONE,
       retentionDays: RETENTION_DAYS,
+      granularity: isSingleDay ? 'hour' : 'day',
       pageViews: totals[0]?.pageViews || 0,
       uniqueVisitors: totals[0]?.uniqueVisitors || 0,
+      last7Days: last7[0]?.pageViews || 0,
       totalPageViews,
-      byHour,
+      series,
       locations,
       pages,
-      recent,
-      trend
+      recent
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching analytics', error: error.message });
