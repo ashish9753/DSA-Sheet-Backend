@@ -8,10 +8,25 @@ require('dotenv').config();
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Fail fast if the JWT secret is missing/insecure in production. A predictable
-// secret lets anyone forge auth tokens, so we refuse to start with the default.
-const INSECURE_DEFAULT_SECRET = 'your-secret-key-change-in-production';
-if (isProduction && (!process.env.JWT_SECRET || process.env.JWT_SECRET === INSECURE_DEFAULT_SECRET)) {
-  console.error('FATAL: JWT_SECRET is not set to a secure value. Refusing to start.');
+// secret lets anyone forge auth tokens, so we refuse to start with one.
+// Comparing against a single known default was not enough: any other tutorial
+// placeholder passed the check, which is exactly what happened in production.
+// Reject anything too short to resist brute force or that still reads like a
+// placeholder, rather than trying to enumerate every bad string.
+const MIN_JWT_SECRET_LENGTH = 32;
+const PLACEHOLDER_SECRET_PATTERN = /change|your[-_]|secret-key|placeholder|example|changeme/i;
+
+const jwtSecret = process.env.JWT_SECRET || '';
+const jwtSecretProblem = !jwtSecret
+  ? 'is not set'
+  : jwtSecret.length < MIN_JWT_SECRET_LENGTH
+    ? `must be at least ${MIN_JWT_SECRET_LENGTH} characters (it is ${jwtSecret.length})`
+    : PLACEHOLDER_SECRET_PATTERN.test(jwtSecret)
+      ? 'still looks like a placeholder'
+      : null;
+
+if (isProduction && jwtSecretProblem) {
+  console.error(`FATAL: JWT_SECRET ${jwtSecretProblem}. Refusing to start.`);
   process.exit(1);
 }
 
@@ -65,6 +80,18 @@ const generalLimiter = rateLimit({
 });
 app.use(generalLimiter);
 
+// Visit tracking is public and fires on every page load, so it gets its own
+// allowance instead of eating into the general budget. The cap is well above
+// what a real person browsing the site can produce, but low enough that nobody
+// can meaningfully inflate the traffic numbers.
+const analyticsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests. Please slow down and try again later.' }
+});
+
 // Stricter limiter for authentication endpoints (brute-force protection)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -111,6 +138,7 @@ const leaderboardRoutes = require('./routes/leaderboard.router');
 const reviewsRoutes = require('./routes/reviews.router');
 const adminRoutes = require('./routes/admin.router');
 const adminQuestionsRoutes = require('./routes/adminQuestions.router');
+const analyticsRoutes = require('./routes/analytics.router');
 app.use('/api/questions', questionRoutes);
 app.use('/api/dp-questions', dpQuestionRoutes);
 app.use('/api/linkedlist-questions', linkedListQuestionRoutes);
@@ -123,6 +151,7 @@ app.use('/api/heaps-questions', heapsQuestionRoutes);
 app.use('/api/greedy-questions', greedyQuestionRoutes);
 app.use('/api/graphs-questions', graphsQuestionRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/analytics', analyticsLimiter, analyticsRoutes);
 app.use('/api/core-concepts', coreConceptsRoutes);
 app.use('/api/admin/questions', adminQuestionsRoutes);
 app.use('/api/admin', adminRoutes);
@@ -147,5 +176,11 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server get running on port ${PORT}`);
+  console.log(`Server get running on port ${PORT} in ${isProduction ? 'production' : 'development'} mode`);
+  // The checks above only run in production. Saying the mode out loud makes a
+  // missing NODE_ENV on the live server obvious in the deploy logs, instead of
+  // silently skipping every security check.
+  if (!isProduction) {
+    console.warn('WARNING: not in production mode — strict security checks are disabled.');
+  }
 });

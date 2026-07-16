@@ -5,10 +5,14 @@ const User = require('../models/User');
 const Question = require('../models/Question');
 const UserProgress = require('../models/UserProgress');
 const CompletionHistory = require('../models/CompletionHistory');
+const Visit = require('../models/Visit');
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
+const { TIME_ZONE, RETENTION_DAYS, dayKey, daysAgoKey } = require('../utils/analytics');
 
 const MAIN_ADMIN_EMAIL = 'admin@ashishdev.com';
+const TREND_DAYS = 7;
+const RECENT_VISIT_LIMIT = 50;
 
 router.use(auth);
 router.use(isAdmin);
@@ -28,6 +32,90 @@ const validateQuestionPayload = (payload) => {
   if (!['Easy', 'Medium', 'Hard'].includes(payload.difficulty)) return 'Difficulty must be Easy, Medium, or Hard';
   return null;
 };
+
+// Site traffic for a single day, defaulting to today in TIME_ZONE. Admin-only:
+// this router applies auth + isAdmin to every route above.
+router.get('/analytics', async (req, res) => {
+  try {
+    const requestedDate = typeof req.query.date === 'string' ? req.query.date : '';
+    const day = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : dayKey();
+
+    const [totals, hourly, locations, pages, recent, trend, totalPageViews] = await Promise.all([
+      Visit.aggregate([
+        { $match: { day } },
+        { $group: { _id: null, pageViews: { $sum: 1 }, visitors: { $addToSet: '$visitorHash' } } },
+        { $project: { _id: 0, pageViews: 1, uniqueVisitors: { $size: '$visitors' } } }
+      ]),
+      Visit.aggregate([
+        { $match: { day } },
+        { $group: { _id: { $hour: { date: '$createdAt', timezone: TIME_ZONE } }, pageViews: { $sum: 1 } } }
+      ]),
+      Visit.aggregate([
+        { $match: { day } },
+        {
+          $group: {
+            _id: { country: '$country', timezone: '$timezone' },
+            pageViews: { $sum: 1 },
+            visitors: { $addToSet: '$visitorHash' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            country: '$_id.country',
+            timezone: '$_id.timezone',
+            pageViews: 1,
+            uniqueVisitors: { $size: '$visitors' }
+          }
+        },
+        { $sort: { pageViews: -1 } },
+        { $limit: 20 }
+      ]),
+      Visit.aggregate([
+        { $match: { day } },
+        { $group: { _id: '$path', pageViews: { $sum: 1 } } },
+        { $project: { _id: 0, path: '$_id', pageViews: 1 } },
+        { $sort: { pageViews: -1 } },
+        { $limit: 10 }
+      ]),
+      Visit.find({ day })
+        .sort({ createdAt: -1 })
+        .limit(RECENT_VISIT_LIMIT)
+        .select('createdAt path country timezone referrer -_id')
+        .lean(),
+      Visit.aggregate([
+        { $match: { day: { $gte: daysAgoKey(TREND_DAYS - 1) } } },
+        { $group: { _id: '$day', pageViews: { $sum: 1 }, visitors: { $addToSet: '$visitorHash' } } },
+        { $project: { _id: 0, day: '$_id', pageViews: 1, uniqueVisitors: { $size: '$visitors' } } },
+        { $sort: { day: 1 } }
+      ]),
+      Visit.countDocuments()
+    ]);
+
+    // Fill the quiet hours back in so the chart always spans a full day.
+    const pageViewsByHour = new Map(hourly.map(bucket => [bucket._id, bucket.pageViews]));
+    const byHour = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      pageViews: pageViewsByHour.get(hour) || 0
+    }));
+
+    res.json({
+      day,
+      timeZone: TIME_ZONE,
+      retentionDays: RETENTION_DAYS,
+      pageViews: totals[0]?.pageViews || 0,
+      uniqueVisitors: totals[0]?.uniqueVisitors || 0,
+      totalPageViews,
+      byHour,
+      locations,
+      pages,
+      recent,
+      trend
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching analytics', error: error.message });
+  }
+});
 
 // Get all questions for admin management
 router.get('/questions', async (req, res) => {
