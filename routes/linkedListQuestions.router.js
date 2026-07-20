@@ -66,26 +66,19 @@ router.patch('/:id', auth, async (req, res) => {
 
     await userProgress.save();
 
-    // If marking as completed, add to completion history
+    // If marking as completed, record in completion history (one entry per day
+    // per question) so today's tick shows up on the activity graph. History is
+    // kept intact on unmark, matching the other topic routers, so past streak
+    // days are never erased.
     if (completed) {
-      const existingHistory = await CompletionHistory.findOne({
-        user: req.userId,
-        question: questionId
-      });
+      const now = new Date();
+      const todayDateKey = now.toISOString().split('T')[0];
 
-      if (!existingHistory) {
-        await CompletionHistory.create({
-          user: req.userId,
-          question: questionId,
-          completedAt: new Date()
-        });
-      }
-    } else {
-      // If marking as incomplete, remove from completion history
-      await CompletionHistory.deleteOne({
-        user: req.userId,
-        question: questionId
-      });
+      await CompletionHistory.findOneAndUpdate(
+        { user: req.userId, question: questionId, dateKey: todayDateKey },
+        { user: req.userId, question: questionId, completedAt: now, dateKey: todayDateKey },
+        { upsert: true, new: true }
+      );
     }
 
     res.json({ 

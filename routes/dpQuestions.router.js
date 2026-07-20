@@ -67,20 +67,17 @@ router.patch('/:id', auth, async (req, res) => {
     
     await userProgress.save();
     
-    // If marking as completed, add to completion history
+    // If marking as completed, record in completion history (one entry per day
+    // per question) so today's tick shows up on the activity graph.
     if (completed) {
-      const existingHistory = await CompletionHistory.findOne({
-        user: req.userId,
-        question: questionId
-      });
-      
-      if (!existingHistory) {
-        const completionHistory = new CompletionHistory({
-          user: req.userId,
-          question: questionId
-        });
-        await completionHistory.save();
-      }
+      const now = new Date();
+      const todayDateKey = now.toISOString().split('T')[0];
+
+      await CompletionHistory.findOneAndUpdate(
+        { user: req.userId, question: questionId, dateKey: todayDateKey },
+        { user: req.userId, question: questionId, completedAt: now, dateKey: todayDateKey },
+        { upsert: true, new: true }
+      );
     }
     
     res.json({ message: 'Progress updated successfully', completed });

@@ -57,29 +57,17 @@ router.patch('/:id', auth, async (req, res) => {
     }
 
     if (completed) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Record in completion history (one entry per day per question) so the
+      // activity graph picks it up. Must match the CompletionHistory schema:
+      // question (singular) + dateKey are required.
+      const now = new Date();
+      const todayDateKey = now.toISOString().split('T')[0];
 
-      let history = await CompletionHistory.findOne({
-        user: req.userId,
-        date: today
-      });
-
-      if (history) {
-        if (!history.questions.includes(questionId)) {
-          history.questions.push(questionId);
-          history.count += 1;
-          await history.save();
-        }
-      } else {
-        history = new CompletionHistory({
-          user: req.userId,
-          date: today,
-          questions: [questionId],
-          count: 1
-        });
-        await history.save();
-      }
+      await CompletionHistory.findOneAndUpdate(
+        { user: req.userId, question: questionId, dateKey: todayDateKey },
+        { user: req.userId, question: questionId, completedAt: now, dateKey: todayDateKey },
+        { upsert: true, new: true }
+      );
     }
 
     res.json({ message: 'Progress updated', completed });
@@ -122,8 +110,8 @@ router.get('/stats/activity', auth, async (req, res) => {
     const history = await CompletionHistory.find({ user: req.userId });
     const activityMap = {};
     history.forEach(entry => {
-      const dateStr = entry.date.toISOString().split('T')[0];
-      activityMap[dateStr] = (activityMap[dateStr] || 0) + entry.count;
+      const dateStr = entry.dateKey;
+      activityMap[dateStr] = (activityMap[dateStr] || 0) + 1;
     });
     res.json(activityMap);
   } catch (error) {
